@@ -333,7 +333,7 @@ class MiniCssExtractPlugin {
                 'promises.push(installedCssChunks[chunkId] = new Promise(function(resolve, reject) {',
                 Template.indent([
                   `var href = ${linkHrefPath};`,
-                  `var fullhref = ${mainTemplate.requireFn}.p + href;`,
+                  `var fullhref = ${this.options.outputPublicPath ? `'${this.options.outputPublicPath}'` : `${mainTemplate.requireFn}.p`}  + href;`,
                   'if (fetchRTL) {',
                   Template.indent([
                     `fullhref = fullhref.replace(/\\.css/i, '.rtl.css');`,

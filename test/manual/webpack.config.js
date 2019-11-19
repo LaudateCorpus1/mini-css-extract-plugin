@@ -22,6 +22,7 @@ module.exports = {
       filename: '[name].client.css',
       chunkFilename: '[name].chunk.client.css',
       globalRTLFlag: 'rtlLanguageEnabled',
+      // outputPublicPath: '/bundles/css/',
     }),
     new WebpackRtlPlugin(),
   ],
