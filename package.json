@@ -27,7 +27,7 @@
     "test:only": "cross-env NODE_ENV=test jest",
     "test:watch": "cross-env NODE_ENV=test jest --watch",
     "test:coverage": "cross-env NODE_ENV=test jest --collectCoverageFrom=\"src/**/*.js\" --coverage",
-    "test:manual": "webpack-dev-server test/manual/src/index.js --open --config test/manual/webpack.config.js",
+    "test:manual": "webpack-dev-server test/manual/src/index.js --config test/manual/webpack.config.js",
     "pretest": "npm run lint",
     "test": "cross-env NODE_ENV=test npm run test:coverage",
     "defaults": "webpack-defaults"

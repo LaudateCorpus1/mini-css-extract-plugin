@@ -17,8 +17,9 @@ module.exports = {
   },
   plugins: [
     new Self({
-      filename: '[name].css',
-      chunkFilename: '[contenthash].css',
+      filename: '[name].client.css',
+      chunkFilename: '[name].chunk.client.css',
+      globalRTLFlag: 'rtlLanguageEnabled',
     }),
   ],
   devServer: {

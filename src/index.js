@@ -325,6 +325,7 @@ class MiniCssExtractPlugin {
               source,
               '',
               `// ${pluginName} CSS loading`,
+              `var fetchRTL = !!window['${this.options.globalRTLFlag}'];`,
               `var cssChunks = ${JSON.stringify(chunkMap)};`,
               'if(installedCssChunks[chunkId]) promises.push(installedCssChunks[chunkId]);',
               'else if(installedCssChunks[chunkId] !== 0 && cssChunks[chunkId]) {',
@@ -333,6 +334,11 @@ class MiniCssExtractPlugin {
                 Template.indent([
                   `var href = ${linkHrefPath};`,
                   `var fullhref = ${mainTemplate.requireFn}.p + href;`,
+                  'if (fetchRTL) {',
+                  Template.indent([
+                    `fullhref = fullhref.replace(/\\.css/i, '.rtl.css');`,
+                  ]),
+                  '}',
                   'var existingLinkTags = document.getElementsByTagName("link");',
                   'for(var i = 0; i < existingLinkTags.length; i++) {',
                   Template.indent([

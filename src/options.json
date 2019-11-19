@@ -10,6 +10,9 @@
           "instanceof": "Function"
         }
       ]
+    },
+    "globalRTLFlag": {
+      "type": "string"
     }
   },
   "errorMessages": {
