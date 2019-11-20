@@ -325,7 +325,11 @@ class MiniCssExtractPlugin {
               source,
               '',
               `// ${pluginName} CSS loading`,
-              `var fetchRTL = !!window['${this.options.globalRTLFlag}'];`,
+              `var fetchRTL = ${
+                this.options.globalRTLFlag
+                  ? `window['${this.options.globalRTLFlag}']`
+                  : false
+              };`,
               `var cssChunks = ${JSON.stringify(chunkMap)};`,
               'if(installedCssChunks[chunkId]) promises.push(installedCssChunks[chunkId]);',
               'else if(installedCssChunks[chunkId] !== 0 && cssChunks[chunkId]) {',
@@ -333,7 +337,11 @@ class MiniCssExtractPlugin {
                 'promises.push(installedCssChunks[chunkId] = new Promise(function(resolve, reject) {',
                 Template.indent([
                   `var href = ${linkHrefPath};`,
-                  `var fullhref = ${this.options.outputPublicPath ? `'${this.options.outputPublicPath}'` : `${mainTemplate.requireFn}.p`}  + href;`,
+                  `var fullhref = ${
+                    this.options.outputPublicPath
+                      ? `'${this.options.outputPublicPath}'`
+                      : `${mainTemplate.requireFn}.p`
+                  }  + href;`,
                   'if (fetchRTL) {',
                   Template.indent([
                     `fullhref = fullhref.replace(/\\.css/i, '.rtl.css');`,
