@@ -1,0 +1,25 @@
+{
+  "additionalProperties": true,
+  "properties": {
+    "globalRTLFlag": {
+      "type": "string"
+    },
+    "outputPublicPath": {
+      "type": "string"
+    },
+    "publicPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "instanceof": "Function"
+        }
+      ]
+    }
+  },
+  "errorMessages": {
+    "publicPath": "should be {String} or {Function} (https://github.com/webpack-contrib/mini-css-extract-plugin#publicpath)"
+  },
+  "type": "object"
+}
