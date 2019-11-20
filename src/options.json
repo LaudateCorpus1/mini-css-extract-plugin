@@ -1,6 +1,12 @@
 {
   "additionalProperties": true,
   "properties": {
+    "globalRTLFlag": {
+      "type": "string"
+    },
+    "outputPublicPath": {
+      "type": "string"
+    },
     "publicPath": {
       "anyOf": [
         {
