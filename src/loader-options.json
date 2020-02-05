@@ -1,4 +1,5 @@
 {
+  "type": "object",
   "additionalProperties": true,
   "properties": {
     "globalRTLFlag": {
@@ -16,10 +17,15 @@
           "instanceof": "Function"
         }
       ]
+    },
+    "esModule": {
+      "type": "boolean"
+    },
+    "hmr": {
+      "type": "boolean"
+    },
+    "reloadAll": {
+      "type": "boolean"
     }
-  },
-  "errorMessages": {
-    "publicPath": "should be {String} or {Function} (https://github.com/webpack-contrib/mini-css-extract-plugin#publicpath)"
-  },
-  "type": "object"
+  }
 }

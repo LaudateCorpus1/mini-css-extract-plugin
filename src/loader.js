@@ -12,7 +12,7 @@ import validateOptions from 'schema-utils';
 
 import CssDependency from './CssDependency';
 
-import schema from './options.json';
+import schema from './loader-options.json';
 
 const pluginName = 'mini-css-extract-plugin';
 
@@ -149,7 +149,7 @@ export function pitch(request) {
         const count = identifierCountMap.get(dependency.identifier) || 0;
 
         this._module.addDependency(
-          new CssDependency(dependency, module.context, count)
+          new CssDependency(dependency, dependency.context, count)
         );
         identifierCountMap.set(dependency.identifier, count + 1);
       }
@@ -179,7 +179,9 @@ export function pitch(request) {
 
     try {
       let dependencies;
-      const exports = evalModuleCode(this, source, request);
+      let exports = evalModuleCode(this, source, request);
+      // eslint-disable-next-line no-underscore-dangle
+      exports = exports.__esModule ? exports.default : exports;
       locals = exports && exports.locals;
       if (!Array.isArray(exports)) {
         dependencies = [[null, exports]];
@@ -189,6 +191,7 @@ export function pitch(request) {
 
           return {
             identifier: module.identifier(),
+            context: module.context,
             content,
             media,
             sourceMap,
@@ -200,10 +203,15 @@ export function pitch(request) {
       return callback(e);
     }
 
-    let resultSource = `// extracted by ${pluginName}`;
+    const esModule =
+      typeof options.esModule !== 'undefined' ? options.esModule : false;
     const result = locals
-      ? `\nmodule.exports = ${JSON.stringify(locals)};`
+      ? `\n${esModule ? 'export default' : 'module.exports ='} ${JSON.stringify(
+          locals
+        )};`
       : '';
+
+    let resultSource = `// extracted by ${pluginName}`;
 
     resultSource += options.hmr
       ? hotLoader(result, { context: this.context, options, locals })

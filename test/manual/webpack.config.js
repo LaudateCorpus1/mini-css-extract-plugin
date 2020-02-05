@@ -2,6 +2,16 @@ const WebpackRtlPlugin = require('webpack-rtl-plugin');
 
 const Self = require('../../');
 
+const ENABLE_HMR =
+  typeof process.env.ENABLE_HMR !== 'undefined'
+    ? Boolean(process.env.ENABLE_HMR)
+    : false;
+
+const ENABLE_ES_MODULE =
+  typeof process.env.ES_MODULE !== 'undefined'
+    ? Boolean(process.env.ES_MODULE)
+    : false;
+
 module.exports = {
   mode: 'development',
   output: {
@@ -13,7 +23,39 @@ module.exports = {
     rules: [
       {
         test: /\.css$/,
-        use: [Self.loader, 'css-loader'],
+        exclude: [/\.module\.css$/i],
+        use: [
+          {
+            loader: Self.loader,
+            options: {
+              hmr: ENABLE_HMR,
+            },
+          },
+          {
+            loader: 'css-loader',
+            options: {
+              esModule: ENABLE_ES_MODULE,
+            },
+          },
+        ],
+      },
+      {
+        test: /\.module\.css$/i,
+        use: [
+          {
+            loader: Self.loader,
+            options: {
+              hmr: ENABLE_HMR,
+            },
+          },
+          {
+            loader: 'css-loader',
+            options: {
+              modules: true,
+              esModule: ENABLE_ES_MODULE,
+            },
+          },
+        ],
       },
     ],
   },
