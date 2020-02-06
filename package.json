@@ -1,13 +1,16 @@
 {
-  "name": "mini-css-extract-plugin",
+  "name": "@chesscom/mini-css-extract-plugin",
   "version": "0.9.0",
   "description": "extracts CSS into separate files",
   "license": "MIT",
-  "repository": "webpack-contrib/mini-css-extract-plugin",
+  "repository": "git://github.com/chesscom/mini-css-extract-plugin.git",
   "author": "Tobias Koppers @sokra",
   "homepage": "https://github.com/webpack-contrib/mini-css-extract-plugin",
   "bugs": "https://github.com/webpack-contrib/mini-css-extract-plugin/issues",
   "main": "dist/cjs.js",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
+  },
   "engines": {
     "node": ">= 6.9.0"
   },
