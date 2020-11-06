@@ -115,8 +115,22 @@ module.exports = class CssLoadingRuntimeModule extends RuntimeModule {
         'chunkId',
         `return new Promise(${runtimeTemplate.basicFunction('resolve, reject', [
           `var href = ${RuntimeGlobals.require}.miniCssF(chunkId);`,
-          `var fullhref = ${RuntimeGlobals.publicPath} + href;`,
+          `var fetchRTL = ${
+            this.runtimeOptions.globalRTLFlag
+              ? `window['${this.runtimeOptions.globalRTLFlag}']`
+              : false
+          };`,
+          `var fullhref = ${
+            this.runtimeOptions.outputPublicPath
+              ? `'${this.runtimeOptions.outputPublicPath}'`
+              : RuntimeGlobals.publicPath
+          } + href;`,
           'if(findStylesheet(href, fullhref)) return resolve();',
+          'if (fetchRTL) {',
+          Template.indent([
+            `fullhref = fullhref.replace(/\\.css/i, '.rtl.css');`,
+          ]),
+          '}',
           'createStylesheet(chunkId, fullhref, resolve, reject);',
         ])});`
       )}`,

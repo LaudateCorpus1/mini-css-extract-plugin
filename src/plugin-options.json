@@ -2,6 +2,12 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "globalRTLFlag": {
+      "type": "string"
+    },
+    "outputPublicPath": {
+      "type": "string"
+    },
     "filename": {
       "anyOf": [
         {

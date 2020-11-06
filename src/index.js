@@ -64,6 +64,8 @@ class MiniCssExtractPlugin {
     this.runtimeOptions = {
       insert,
       linkType,
+      globalRTLFlag: options.globalRTLFlag,
+      outputPublicPath: options.outputPublicPath,
     };
 
     this.runtimeOptions.attributes = Template.asString(
