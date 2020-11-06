@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.4.0](https://github.com/chesscom/mini-css-extract-plugin/compare/v1.3.0...v1.4.0) (2020-11-06)
+
+
+### Features
+
+* **wp5:** add RTL support for webpack5 runtime modules ([cc2d0db](https://github.com/chesscom/mini-css-extract-plugin/commit/cc2d0db31c9c7b0432b1800426d04b5eb3fb7260))
+
 ## [1.3.0](https://github.com/webpack-contrib/mini-css-extract-plugin/compare/v1.2.1...v1.3.0) (2020-11-06)
 
 
