@@ -1,133 +1,120 @@
 /* eslint-disable class-methods-use-this */
 
 import webpack from 'webpack';
-import sources from 'webpack-sources';
 
-import validateOptions from 'schema-utils';
+import { validate } from 'schema-utils';
 
+import CssModuleFactory from './CssModuleFactory';
+import CssDependencyTemplate from './CssDependencyTemplate';
 import CssDependency from './CssDependency';
 import schema from './plugin-options.json';
+import { MODULE_TYPE, compareModulesByIdentifier } from './utils';
 
-const { ConcatSource, SourceMapSource, OriginalSource } = sources;
+// webpack 5 exposes the sources property to ensure the right version of webpack-sources is used
+const { ConcatSource, SourceMapSource, RawSource } =
+  // eslint-disable-next-line global-require
+  webpack.sources || require('webpack-sources');
+
 const {
   Template,
   util: { createHash },
 } = webpack;
-
-const MODULE_TYPE = 'css/mini-extract';
 
 const pluginName = 'mini-css-extract-plugin';
 
 const REGEXP_CHUNKHASH = /\[chunkhash(?::(\d+))?\]/i;
 const REGEXP_CONTENTHASH = /\[contenthash(?::(\d+))?\]/i;
 const REGEXP_NAME = /\[name\]/i;
-const REGEXP_PLACEHOLDERS = /\[(name|id|chunkhash)\]/g;
 const DEFAULT_FILENAME = '[name].css';
-
-class CssDependencyTemplate {
-  apply() {}
-}
-
-class CssModule extends webpack.Module {
-  constructor(dependency) {
-    super(MODULE_TYPE, dependency.context);
-
-    this.id = '';
-    this._identifier = dependency.identifier;
-    this._identifierIndex = dependency.identifierIndex;
-    this.content = dependency.content;
-    this.media = dependency.media;
-    this.sourceMap = dependency.sourceMap;
-  }
-
-  // no source() so webpack doesn't do add stuff to the bundle
-
-  size() {
-    return this.content.length;
-  }
-
-  identifier() {
-    return `css ${this._identifier} ${this._identifierIndex}`;
-  }
-
-  readableIdentifier(requestShortener) {
-    return `css ${requestShortener.shorten(this._identifier)}${
-      this._identifierIndex ? ` (${this._identifierIndex})` : ''
-    }`;
-  }
-
-  nameForCondition() {
-    const resource = this._identifier.split('!').pop();
-    const idx = resource.indexOf('?');
-
-    if (idx >= 0) {
-      return resource.substring(0, idx);
-    }
-
-    return resource;
-  }
-
-  updateCacheModule(module) {
-    this.content = module.content;
-    this.media = module.media;
-    this.sourceMap = module.sourceMap;
-  }
-
-  needRebuild() {
-    return true;
-  }
-
-  build(options, compilation, resolver, fileSystem, callback) {
-    this.buildInfo = {};
-    this.buildMeta = {};
-    callback();
-  }
-
-  updateHash(hash) {
-    super.updateHash(hash);
-
-    hash.update(this.content);
-    hash.update(this.media || '');
-    hash.update(this.sourceMap ? JSON.stringify(this.sourceMap) : '');
-  }
-}
-
-class CssModuleFactory {
-  create({ dependencies: [dependency] }, callback) {
-    callback(null, new CssModule(dependency));
-  }
-}
 
 class MiniCssExtractPlugin {
   constructor(options = {}) {
-    validateOptions(schema, options, 'Mini CSS Extract Plugin');
+    validate(schema, options, {
+      name: 'Mini CSS Extract Plugin',
+      baseDataPath: 'options',
+    });
+
+    const insert =
+      typeof options.insert !== 'undefined'
+        ? typeof options.insert === 'function'
+          ? `(${options.insert.toString()})(linkTag)`
+          : Template.asString([
+              `var target = document.querySelector("${options.insert}");`,
+              `target.parentNode.insertBefore(linkTag, target.nextSibling);`,
+            ])
+        : Template.asString(['document.head.appendChild(linkTag);']);
+
+    const attributes =
+      typeof options.attributes === 'object' ? options.attributes : {};
+
+    // Todo in next major release set default to "false"
+    const linkType =
+      options.linkType === true || typeof options.linkType === 'undefined'
+        ? 'text/css'
+        : options.linkType;
 
     this.options = Object.assign(
       {
         filename: DEFAULT_FILENAME,
-        moduleFilename: () => this.options.filename || DEFAULT_FILENAME,
         ignoreOrder: false,
       },
       options
     );
 
+    this.runtimeOptions = {
+      insert,
+      linkType,
+    };
+
+    this.runtimeOptions.attributes = Template.asString(
+      Object.entries(attributes).map((entry) => {
+        const [key, value] = entry;
+
+        return `linkTag.setAttribute(${JSON.stringify(key)}, ${JSON.stringify(
+          value
+        )});`;
+      })
+    );
+
     if (!this.options.chunkFilename) {
       const { filename } = this.options;
 
-      // Anything changing depending on chunk is fine
-      if (filename.match(REGEXP_PLACEHOLDERS)) {
-        this.options.chunkFilename = filename;
+      if (typeof filename !== 'function') {
+        const hasName = filename.includes('[name]');
+        const hasId = filename.includes('[id]');
+        const hasChunkHash = filename.includes('[chunkhash]');
+        const hasContentHash = filename.includes('[contenthash]');
+
+        // Anything changing depending on chunk is fine
+        if (hasChunkHash || hasContentHash || hasName || hasId) {
+          this.options.chunkFilename = filename;
+        } else {
+          // Otherwise prefix "[id]." in front of the basename to make it changing
+          this.options.chunkFilename = filename.replace(
+            /(^|\/)([^/]*(?:\?|$))/,
+            '$1[id].$2'
+          );
+        }
       } else {
-        // Elsewise prefix '[id].' in front of the basename to make it changing
-        this.options.chunkFilename = filename.replace(
-          /(^|\/)([^/]*(?:\?|$))/,
-          '$1[id].$2'
-        );
+        this.options.chunkFilename = '[id].css';
       }
     }
   }
 
+  /** @param {import("webpack").Compiler} compiler */
   apply(compiler) {
+    const isWebpack4 = compiler.webpack
+      ? false
+      : typeof compiler.resolvers !== 'undefined';
+
+    if (!isWebpack4) {
+      const { splitChunks } = compiler.options.optimization;
+      if (splitChunks) {
+        if (splitChunks.defaultSizeTypes.includes('...')) {
+          splitChunks.defaultSizeTypes.push(MODULE_TYPE);
+        }
+      }
+    }
     compiler.hooks.thisCompilation.tap(pluginName, (compilation) => {
       compilation.dependencyFactories.set(
         CssDependency,
@@ -139,94 +126,151 @@ class MiniCssExtractPlugin {
         new CssDependencyTemplate()
       );
 
-      compilation.mainTemplate.hooks.renderManifest.tap(
-        pluginName,
-        (result, { chunk }) => {
-          const renderedModules = Array.from(chunk.modulesIterable).filter(
-            (module) => module.type === MODULE_TYPE
-          );
+      if (isWebpack4) {
+        compilation.mainTemplate.hooks.renderManifest.tap(
+          pluginName,
+          (result, { chunk }) => {
+            const { chunkGraph } = compilation;
 
-          if (renderedModules.length > 0) {
-            result.push({
-              render: () =>
-                this.renderContentAsset(
-                  compilation,
+            const renderedModules = Array.from(
+              this.getChunkModules(chunk, chunkGraph)
+            ).filter((module) => module.type === MODULE_TYPE);
+
+            const filenameTemplate =
+              chunk.filenameTemplate || this.options.filename;
+
+            if (renderedModules.length > 0) {
+              result.push({
+                render: () =>
+                  this.renderContentAsset(
+                    compilation,
+                    chunk,
+                    renderedModules,
+                    compilation.runtimeTemplate.requestShortener
+                  ),
+                filenameTemplate,
+                pathOptions: {
                   chunk,
-                  renderedModules,
-                  compilation.runtimeTemplate.requestShortener
-                ),
-              filenameTemplate: ({ chunk: chunkData }) =>
-                this.options.moduleFilename(chunkData),
-              pathOptions: {
-                chunk,
-                contentHashType: MODULE_TYPE,
-              },
-              identifier: `${pluginName}.${chunk.id}`,
-              hash: chunk.contentHash[MODULE_TYPE],
-            });
+                  contentHashType: MODULE_TYPE,
+                },
+                identifier: `${pluginName}.${chunk.id}`,
+                hash: chunk.contentHash[MODULE_TYPE],
+              });
+            }
           }
-        }
-      );
+        );
 
-      compilation.chunkTemplate.hooks.renderManifest.tap(
-        pluginName,
-        (result, { chunk }) => {
-          const renderedModules = Array.from(chunk.modulesIterable).filter(
-            (module) => module.type === MODULE_TYPE
-          );
+        compilation.chunkTemplate.hooks.renderManifest.tap(
+          pluginName,
+          (result, { chunk }) => {
+            const { chunkGraph } = compilation;
 
-          if (renderedModules.length > 0) {
-            result.push({
-              render: () =>
-                this.renderContentAsset(
-                  compilation,
+            const renderedModules = Array.from(
+              this.getChunkModules(chunk, chunkGraph)
+            ).filter((module) => module.type === MODULE_TYPE);
+
+            const filenameTemplate =
+              chunk.filenameTemplate || this.options.chunkFilename;
+
+            if (renderedModules.length > 0) {
+              result.push({
+                render: () =>
+                  this.renderContentAsset(
+                    compilation,
+                    chunk,
+                    renderedModules,
+                    compilation.runtimeTemplate.requestShortener
+                  ),
+                filenameTemplate,
+                pathOptions: {
                   chunk,
-                  renderedModules,
-                  compilation.runtimeTemplate.requestShortener
-                ),
-              filenameTemplate: this.options.chunkFilename,
-              pathOptions: {
-                chunk,
-                contentHashType: MODULE_TYPE,
-              },
-              identifier: `${pluginName}.${chunk.id}`,
-              hash: chunk.contentHash[MODULE_TYPE],
-            });
+                  contentHashType: MODULE_TYPE,
+                },
+                identifier: `${pluginName}.${chunk.id}`,
+                hash: chunk.contentHash[MODULE_TYPE],
+              });
+            }
           }
-        }
-      );
+        );
+      } else {
+        compilation.hooks.renderManifest.tap(
+          pluginName,
+          (result, { chunk }) => {
+            const { chunkGraph } = compilation;
 
-      compilation.mainTemplate.hooks.hashForChunk.tap(
-        pluginName,
-        (hash, chunk) => {
-          const { chunkFilename } = this.options;
+            // We don't need hot update chunks for css
+            // We will use the real asset instead to update
+            if (chunk instanceof webpack.HotUpdateChunk) {
+              return;
+            }
 
-          if (REGEXP_CHUNKHASH.test(chunkFilename)) {
-            hash.update(JSON.stringify(chunk.getChunkMaps(true).hash));
+            const renderedModules = Array.from(
+              this.getChunkModules(chunk, chunkGraph)
+            ).filter((module) => module.type === MODULE_TYPE);
+
+            const filenameTemplate = chunk.canBeInitial()
+              ? this.options.filename
+              : this.options.chunkFilename;
+
+            if (renderedModules.length > 0) {
+              result.push({
+                render: () =>
+                  this.renderContentAsset(
+                    compilation,
+                    chunk,
+                    renderedModules,
+                    compilation.runtimeTemplate.requestShortener
+                  ),
+                filenameTemplate,
+                pathOptions: {
+                  chunk,
+                  contentHashType: MODULE_TYPE,
+                },
+                identifier: `${pluginName}.${chunk.id}`,
+                hash: chunk.contentHash[MODULE_TYPE],
+              });
+            }
           }
+        );
+      }
 
-          if (REGEXP_CONTENTHASH.test(chunkFilename)) {
-            hash.update(
-              JSON.stringify(
-                chunk.getChunkMaps(true).contentHash[MODULE_TYPE] || {}
-              )
-            );
-          }
+      /*
+       * For webpack 5 this will be unneeded once the logic uses a RuntimeModule
+       * as the content of runtime modules is hashed and added to the chunk hash automatically
+       * */
+      if (isWebpack4) {
+        compilation.mainTemplate.hooks.hashForChunk.tap(
+          pluginName,
+          (hash, chunk) => {
+            const { chunkFilename } = this.options;
 
-          if (REGEXP_NAME.test(chunkFilename)) {
-            hash.update(JSON.stringify(chunk.getChunkMaps(true).name));
+            if (REGEXP_CHUNKHASH.test(chunkFilename)) {
+              hash.update(JSON.stringify(chunk.getChunkMaps(true).hash));
+            }
+
+            if (REGEXP_CONTENTHASH.test(chunkFilename)) {
+              hash.update(
+                JSON.stringify(
+                  chunk.getChunkMaps(true).contentHash[MODULE_TYPE] || {}
+                )
+              );
+            }
+
+            if (REGEXP_NAME.test(chunkFilename)) {
+              hash.update(JSON.stringify(chunk.getChunkMaps(true).name));
+            }
           }
-        }
-      );
+        );
+      }
 
       compilation.hooks.contentHash.tap(pluginName, (chunk) => {
-        const { outputOptions } = compilation;
+        const { outputOptions, chunkGraph } = compilation;
         const { hashFunction, hashDigest, hashDigestLength } = outputOptions;
         const hash = createHash(hashFunction);
 
-        for (const m of chunk.modulesIterable) {
+        for (const m of this.getChunkModules(chunk, chunkGraph)) {
           if (m.type === MODULE_TYPE) {
-            m.updateHash(hash);
+            m.updateHash(hash, { chunkGraph });
           }
         }
 
@@ -239,179 +283,231 @@ class MiniCssExtractPlugin {
 
       const { mainTemplate } = compilation;
 
-      mainTemplate.hooks.localVars.tap(pluginName, (source, chunk) => {
-        const chunkMap = this.getCssChunkObject(chunk);
-
-        if (Object.keys(chunkMap).length > 0) {
-          return Template.asString([
-            source,
-            '',
-            '// object to store loaded CSS chunks',
-            'var installedCssChunks = {',
-            Template.indent(
-              chunk.ids.map((id) => `${JSON.stringify(id)}: 0`).join(',\n')
-            ),
-            '}',
-          ]);
-        }
-
-        return source;
-      });
-
-      mainTemplate.hooks.requireEnsure.tap(
-        pluginName,
-        (source, chunk, hash) => {
-          const chunkMap = this.getCssChunkObject(chunk);
+      if (isWebpack4) {
+        mainTemplate.hooks.localVars.tap(pluginName, (source, chunk) => {
+          const chunkMap = this.getCssChunkObject(chunk, compilation);
 
           if (Object.keys(chunkMap).length > 0) {
-            const chunkMaps = chunk.getChunkMaps();
-            const { crossOriginLoading } = mainTemplate.outputOptions;
-            const linkHrefPath = mainTemplate.getAssetPath(
-              JSON.stringify(this.options.chunkFilename),
-              {
-                hash: `" + ${mainTemplate.renderCurrentHashCode(hash)} + "`,
-                hashWithLength: (length) =>
-                  `" + ${mainTemplate.renderCurrentHashCode(hash, length)} + "`,
-                chunk: {
-                  id: '" + chunkId + "',
-                  hash: `" + ${JSON.stringify(chunkMaps.hash)}[chunkId] + "`,
-                  hashWithLength(length) {
-                    const shortChunkHashMap = Object.create(null);
+            return Template.asString([
+              source,
+              '',
+              '// object to store loaded CSS chunks',
+              'var installedCssChunks = {',
+              Template.indent(
+                chunk.ids.map((id) => `${JSON.stringify(id)}: 0`).join(',\n')
+              ),
+              '};',
+            ]);
+          }
 
-                    for (const chunkId of Object.keys(chunkMaps.hash)) {
-                      if (typeof chunkMaps.hash[chunkId] === 'string') {
-                        shortChunkHashMap[chunkId] = chunkMaps.hash[
-                          chunkId
-                        ].substring(0, length);
-                      }
-                    }
+          return source;
+        });
 
-                    return `" + ${JSON.stringify(
-                      shortChunkHashMap
-                    )}[chunkId] + "`;
-                  },
-                  contentHash: {
-                    [MODULE_TYPE]: `" + ${JSON.stringify(
-                      chunkMaps.contentHash[MODULE_TYPE]
-                    )}[chunkId] + "`,
-                  },
-                  contentHashWithLength: {
-                    [MODULE_TYPE]: (length) => {
-                      const shortContentHashMap = {};
-                      const contentHash = chunkMaps.contentHash[MODULE_TYPE];
+        mainTemplate.hooks.requireEnsure.tap(
+          pluginName,
+          (source, chunk, hash) => {
+            const chunkMap = this.getCssChunkObject(chunk, compilation);
 
-                      for (const chunkId of Object.keys(contentHash)) {
-                        if (typeof contentHash[chunkId] === 'string') {
-                          shortContentHashMap[chunkId] = contentHash[
+            if (Object.keys(chunkMap).length > 0) {
+              const chunkMaps = chunk.getChunkMaps();
+              const { crossOriginLoading } = mainTemplate.outputOptions;
+              const linkHrefPath = mainTemplate.getAssetPath(
+                JSON.stringify(this.options.chunkFilename),
+                {
+                  hash: `" + ${mainTemplate.renderCurrentHashCode(hash)} + "`,
+                  hashWithLength: (length) =>
+                    `" + ${mainTemplate.renderCurrentHashCode(
+                      hash,
+                      length
+                    )} + "`,
+                  chunk: {
+                    id: '" + chunkId + "',
+                    hash: `" + ${JSON.stringify(chunkMaps.hash)}[chunkId] + "`,
+                    hashWithLength(length) {
+                      const shortChunkHashMap = Object.create(null);
+
+                      for (const chunkId of Object.keys(chunkMaps.hash)) {
+                        if (typeof chunkMaps.hash[chunkId] === 'string') {
+                          shortChunkHashMap[chunkId] = chunkMaps.hash[
                             chunkId
                           ].substring(0, length);
                         }
                       }
 
                       return `" + ${JSON.stringify(
-                        shortContentHashMap
+                        shortChunkHashMap
                       )}[chunkId] + "`;
                     },
-                  },
-                  name: `" + (${JSON.stringify(
-                    chunkMaps.name
-                  )}[chunkId]||chunkId) + "`,
-                },
-                contentHashType: MODULE_TYPE,
-              }
-            );
+                    contentHash: {
+                      [MODULE_TYPE]: `" + ${JSON.stringify(
+                        chunkMaps.contentHash[MODULE_TYPE]
+                      )}[chunkId] + "`,
+                    },
+                    contentHashWithLength: {
+                      [MODULE_TYPE]: (length) => {
+                        const shortContentHashMap = {};
+                        const contentHash = chunkMaps.contentHash[MODULE_TYPE];
 
-            return Template.asString([
-              source,
-              '',
-              `// ${pluginName} CSS loading`,
-              `var fetchRTL = ${
-                this.options.globalRTLFlag
-                  ? `window['${this.options.globalRTLFlag}']`
-                  : false
-              };`,
-              `var cssChunks = ${JSON.stringify(chunkMap)};`,
-              'if(installedCssChunks[chunkId]) promises.push(installedCssChunks[chunkId]);',
-              'else if(installedCssChunks[chunkId] !== 0 && cssChunks[chunkId]) {',
-              Template.indent([
-                'promises.push(installedCssChunks[chunkId] = new Promise(function(resolve, reject) {',
+                        for (const chunkId of Object.keys(contentHash)) {
+                          if (typeof contentHash[chunkId] === 'string') {
+                            shortContentHashMap[chunkId] = contentHash[
+                              chunkId
+                            ].substring(0, length);
+                          }
+                        }
+
+                        return `" + ${JSON.stringify(
+                          shortContentHashMap
+                        )}[chunkId] + "`;
+                      },
+                    },
+                    name: `" + (${JSON.stringify(
+                      chunkMaps.name
+                    )}[chunkId]||chunkId) + "`,
+                  },
+                  contentHashType: MODULE_TYPE,
+                }
+              );
+
+              return Template.asString([
+                source,
+                '',
+                `// ${pluginName} CSS loading`,
+                `var cssChunks = ${JSON.stringify(chunkMap)};`,
+                'if(installedCssChunks[chunkId]) promises.push(installedCssChunks[chunkId]);',
+                'else if(installedCssChunks[chunkId] !== 0 && cssChunks[chunkId]) {',
                 Template.indent([
-                  `var href = ${linkHrefPath};`,
-                  `var fullhref = ${
-                    this.options.outputPublicPath
-                      ? `'${this.options.outputPublicPath}'`
-                      : `${mainTemplate.requireFn}.p`
-                  }  + href;`,
-                  'if (fetchRTL) {',
+                  'promises.push(installedCssChunks[chunkId] = new Promise(function(resolve, reject) {',
                   Template.indent([
-                    `fullhref = fullhref.replace(/\\.css/i, '.rtl.css');`,
+                    `var href = ${linkHrefPath};`,
+                    `var fullhref = ${mainTemplate.requireFn}.p + href;`,
+                    'var existingLinkTags = document.getElementsByTagName("link");',
+                    'for(var i = 0; i < existingLinkTags.length; i++) {',
+                    Template.indent([
+                      'var tag = existingLinkTags[i];',
+                      'var dataHref = tag.getAttribute("data-href") || tag.getAttribute("href");',
+                      'if(tag.rel === "stylesheet" && (dataHref === href || dataHref === fullhref)) return resolve();',
+                    ]),
+                    '}',
+                    'var existingStyleTags = document.getElementsByTagName("style");',
+                    'for(var i = 0; i < existingStyleTags.length; i++) {',
+                    Template.indent([
+                      'var tag = existingStyleTags[i];',
+                      'var dataHref = tag.getAttribute("data-href");',
+                      'if(dataHref === href || dataHref === fullhref) return resolve();',
+                    ]),
+                    '}',
+                    'var linkTag = document.createElement("link");',
+                    this.runtimeOptions.attributes,
+                    'linkTag.rel = "stylesheet";',
+                    this.runtimeOptions.linkType
+                      ? `linkTag.type = ${JSON.stringify(
+                          this.runtimeOptions.linkType
+                        )};`
+                      : '',
+                    'var onLinkComplete = function (event) {',
+                    Template.indent([
+                      '// avoid mem leaks.',
+                      'linkTag.onerror = linkTag.onload = null;',
+                      "if (event.type === 'load') {",
+                      Template.indent(['resolve();']),
+                      '} else {',
+                      Template.indent([
+                        "var errorType = event && (event.type === 'load' ? 'missing' : event.type);",
+                        'var realHref = event && event.target && event.target.href || fullhref;',
+                        'var err = new Error("Loading CSS chunk " + chunkId + " failed.\\n(" + realHref + ")");',
+                        'err.code = "CSS_CHUNK_LOAD_FAILED";',
+                        'err.type = errorType;',
+                        'err.request = realHref;',
+                        'delete installedCssChunks[chunkId]',
+                        'linkTag.parentNode.removeChild(linkTag)',
+                        'reject(err);',
+                      ]),
+                      '}',
+                    ]),
+                    '};',
+                    'linkTag.onerror = linkTag.onload = onLinkComplete;',
+                    'linkTag.href = fullhref;',
+                    crossOriginLoading
+                      ? Template.asString([
+                          `if (linkTag.href.indexOf(window.location.origin + '/') !== 0) {`,
+                          Template.indent(
+                            `linkTag.crossOrigin = ${JSON.stringify(
+                              crossOriginLoading
+                            )};`
+                          ),
+                          '}',
+                        ])
+                      : '',
+                    this.runtimeOptions.insert,
                   ]),
-                  '}',
-                  'var existingLinkTags = document.getElementsByTagName("link");',
-                  'for(var i = 0; i < existingLinkTags.length; i++) {',
-                  Template.indent([
-                    'var tag = existingLinkTags[i];',
-                    'var dataHref = tag.getAttribute("data-href") || tag.getAttribute("href");',
-                    'if(tag.rel === "stylesheet" && (dataHref === href || dataHref === fullhref)) return resolve();',
-                  ]),
-                  '}',
-                  'var existingStyleTags = document.getElementsByTagName("style");',
-                  'for(var i = 0; i < existingStyleTags.length; i++) {',
-                  Template.indent([
-                    'var tag = existingStyleTags[i];',
-                    'var dataHref = tag.getAttribute("data-href");',
-                    'if(dataHref === href || dataHref === fullhref) return resolve();',
-                  ]),
-                  '}',
-                  'var linkTag = document.createElement("link");',
-                  'linkTag.rel = "stylesheet";',
-                  'linkTag.type = "text/css";',
-                  'linkTag.onload = resolve;',
-                  'linkTag.onerror = function(event) {',
-                  Template.indent([
-                    'var request = event && event.target && event.target.src || fullhref;',
-                    'var err = new Error("Loading CSS chunk " + chunkId + " failed.\\n(" + request + ")");',
-                    'err.code = "CSS_CHUNK_LOAD_FAILED";',
-                    'err.request = request;',
-                    'delete installedCssChunks[chunkId]',
-                    'linkTag.parentNode.removeChild(linkTag)',
-                    'reject(err);',
-                  ]),
-                  '};',
-                  'linkTag.href = fullhref;',
-                  crossOriginLoading
-                    ? Template.asString([
-                        `if (linkTag.href.indexOf(window.location.origin + '/') !== 0) {`,
-                        Template.indent(
-                          `linkTag.crossOrigin = ${JSON.stringify(
-                            crossOriginLoading
-                          )};`
-                        ),
-                        '}',
-                      ])
-                    : '',
-                  'var head = document.getElementsByTagName("head")[0];',
-                  'head.appendChild(linkTag);',
+                  '}).then(function() {',
+                  Template.indent(['installedCssChunks[chunkId] = 0;']),
+                  '}));',
                 ]),
-                '}).then(function() {',
-                Template.indent(['installedCssChunks[chunkId] = 0;']),
-                '}));',
-              ]),
-              '}',
-            ]);
+                '}',
+              ]);
+            }
+
+            return source;
+          }
+        );
+      } else {
+        const enabledChunks = new WeakSet();
+        const handler = (chunk, set) => {
+          if (enabledChunks.has(chunk)) {
+            return;
           }
 
-          return source;
-        }
-      );
+          enabledChunks.add(chunk);
+
+          // eslint-disable-next-line global-require
+          const CssLoadingRuntimeModule = require('./CssLoadingRuntimeModule');
+
+          set.add(webpack.RuntimeGlobals.publicPath);
+          compilation.addRuntimeModule(
+            chunk,
+            new webpack.runtime.GetChunkFilenameRuntimeModule(
+              MODULE_TYPE,
+              'mini-css',
+              `${webpack.RuntimeGlobals.require}.miniCssF`,
+              (referencedChunk) =>
+                referencedChunk.canBeInitial()
+                  ? this.options.filename
+                  : this.options.chunkFilename,
+              true
+            )
+          );
+          compilation.addRuntimeModule(
+            chunk,
+            new CssLoadingRuntimeModule(set, this.runtimeOptions)
+          );
+        };
+        compilation.hooks.runtimeRequirementInTree
+          .for(webpack.RuntimeGlobals.ensureChunkHandlers)
+          .tap(pluginName, handler);
+        compilation.hooks.runtimeRequirementInTree
+          .for(webpack.RuntimeGlobals.hmrDownloadUpdateHandlers)
+          .tap(pluginName, handler);
+      }
     });
   }
 
-  getCssChunkObject(mainChunk) {
+  getChunkModules(chunk, chunkGraph) {
+    return typeof chunkGraph !== 'undefined'
+      ? chunkGraph.getOrderedChunkModulesIterable(
+          chunk,
+          compareModulesByIdentifier
+        )
+      : chunk.modulesIterable;
+  }
+
+  getCssChunkObject(mainChunk, compilation) {
     const obj = {};
+    const { chunkGraph } = compilation;
 
     for (const chunk of mainChunk.getAllAsyncChunks()) {
-      for (const module of chunk.modulesIterable) {
+      for (const module of this.getChunkModules(chunk, chunkGraph)) {
         if (module.type === MODULE_TYPE) {
           obj[chunk.id] = 1;
           break;
@@ -426,8 +522,12 @@ class MiniCssExtractPlugin {
     let usedModules;
 
     const [chunkGroup] = chunk.groupsIterable;
+    const moduleIndexFunctionName =
+      typeof compilation.chunkGraph !== 'undefined'
+        ? 'getModulePostOrderIndex'
+        : 'getModuleIndex2';
 
-    if (typeof chunkGroup.getModuleIndex2 === 'function') {
+    if (typeof chunkGroup[moduleIndexFunctionName] === 'function') {
       // Store dependencies for modules
       const moduleDependencies = new Map(modules.map((m) => [m, new Set()]));
       const moduleDependenciesReasons = new Map(
@@ -442,7 +542,7 @@ class MiniCssExtractPlugin {
           .map((m) => {
             return {
               module: m,
-              index: cg.getModuleIndex2(m),
+              index: cg[moduleIndexFunctionName](m),
             };
           })
           // eslint-disable-next-line no-undefined
@@ -561,11 +661,11 @@ class MiniCssExtractPlugin {
     const externalsSource = new ConcatSource();
 
     for (const m of usedModules) {
-      if (/^@import url/.test(m.content)) {
+      let content = m.content.toString();
+
+      if (/^@import url/.test(content)) {
         // HACK for IE
         // http://stackoverflow.com/a/14676665/1458162
-        let { content } = m;
-
         if (m.media) {
           // insert media into the @import
           // this is rar
@@ -583,17 +683,14 @@ class MiniCssExtractPlugin {
         if (m.sourceMap) {
           source.add(
             new SourceMapSource(
-              m.content,
+              content,
               m.readableIdentifier(requestShortener),
               m.sourceMap
             )
           );
         } else {
           source.add(
-            new OriginalSource(
-              m.content,
-              m.readableIdentifier(requestShortener)
-            )
+            new RawSource(content, m.readableIdentifier(requestShortener))
           );
         }
         source.add('\n');

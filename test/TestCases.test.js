@@ -1,7 +1,34 @@
+/**
+ * @jest-environment node
+ */
+
 import fs from 'fs';
 import path from 'path';
 
 import webpack from 'webpack';
+
+function clearDirectory(dirPath) {
+  let files;
+
+  try {
+    files = fs.readdirSync(dirPath);
+  } catch (e) {
+    return;
+  }
+  if (files.length > 0) {
+    for (let i = 0; i < files.length; i++) {
+      const filePath = `${dirPath}/${files[i]}`;
+
+      if (fs.statSync(filePath).isFile()) {
+        fs.unlinkSync(filePath);
+      } else {
+        clearDirectory(filePath);
+      }
+    }
+  }
+
+  fs.rmdirSync(dirPath);
+}
 
 function compareDirectory(actual, expected) {
   const files = fs.readdirSync(expected);
@@ -18,29 +45,51 @@ function compareDirectory(actual, expected) {
       );
     } else if (stats.isFile()) {
       const content = fs.readFileSync(path.resolve(expected, file), 'utf8');
-      const actualContent = fs.readFileSync(path.resolve(actual, file), 'utf8');
+      let actualContent;
 
-      expect(actualContent).toEqual(content);
+      if (/^MISSING/.test(content)) {
+        expect(fs.existsSync(path.resolve(actual, file))).toBe(false);
+      } else {
+        try {
+          actualContent = fs.readFileSync(path.resolve(actual, file), 'utf8');
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.log(error);
+
+          const dir = fs.readdirSync(actual);
+
+          // eslint-disable-next-line no-console
+          console.log({ [actual]: dir });
+        }
+
+        expect(actualContent).toEqual(content);
+      }
     }
   }
-}
-
-function compareWarning(actual, expectedFile) {
-  if (!fs.existsSync(expectedFile)) {
-    return;
-  }
-
-  // eslint-disable-next-line global-require, import/no-dynamic-require
-  const expected = require(expectedFile);
-
-  expect(actual.trim()).toBe(expected.trim());
 }
 
 describe('TestCases', () => {
   const casesDirectory = path.resolve(__dirname, 'cases');
   const outputDirectory = path.resolve(__dirname, 'js');
+  const tests = fs.readdirSync(casesDirectory).filter((test) => {
+    const testDirectory = path.join(casesDirectory, test);
+    const filterPath = path.join(testDirectory, 'test.filter.js');
 
-  for (const directory of fs.readdirSync(casesDirectory)) {
+    // eslint-disable-next-line global-require, import/no-dynamic-require
+    if (fs.existsSync(filterPath) && !require(filterPath)()) {
+      describe.skip(test, () => {
+        it('filtered', () => {});
+      });
+
+      return false;
+    }
+
+    return true;
+  });
+
+  clearDirectory(outputDirectory);
+
+  for (const directory of tests) {
     if (!/^(\.|_)/.test(directory)) {
       // eslint-disable-next-line no-loop-func
       it(`${directory} should compile to the expected result`, (done) => {
@@ -74,25 +123,20 @@ describe('TestCases', () => {
             done(err);
             return;
           }
+          if (stats.hasErrors()) {
+            done(new Error(stats.toString()));
+            return;
+          }
 
           done();
 
-          // eslint-disable-next-line no-console
-          console.log(
-            stats.toString({
-              context: path.resolve(__dirname, '..'),
-              chunks: true,
-              chunkModules: true,
-              modules: false,
-            })
-          );
-
-          if (stats.hasErrors()) {
+          if (stats.hasErrors() && stats.hasWarnings()) {
             done(
               new Error(
                 stats.toString({
                   context: path.resolve(__dirname, '..'),
                   errorDetails: true,
+                  warnings: true,
                 })
               )
             );
@@ -106,21 +150,72 @@ describe('TestCases', () => {
             `webpack-${webpack.version[0]}`
           );
 
+          if (/^hmr/.test(directory)) {
+            let res = fs
+              .readFileSync(path.resolve(outputDirectoryForCase, 'main.js'))
+              .toString();
+
+            const date = Date.now().toString().slice(0, 6);
+            const dateRegexp = new RegExp(`${date}\\d+`, 'gi');
+
+            res = res.replace(dateRegexp, '');
+
+            if (webpack.version[0] === '4') {
+              const matchAll = res.match(/var hotCurrentHash = "([\d\w].*)"/i);
+              const replacer = new Array(matchAll[1].length);
+
+              res = res.replace(
+                /var hotCurrentHash = "([\d\w].*)"/i,
+                `var hotCurrentHash = "${replacer.fill('x').join('')}"`
+              );
+            } else {
+              const matchAll = res.match(
+                /__webpack_require__\.h = \(\) => "([\d\w].*)"/i
+              );
+
+              const replacer = new Array(matchAll[1].length);
+
+              res = res.replace(
+                /__webpack_require__\.h = \(\) => "([\d\w].*)"/i,
+                `__webpack_require__.h = () => "${replacer.fill('x').join('')}"`
+              );
+            }
+
+            fs.writeFileSync(
+              path.resolve(outputDirectoryForCase, 'main.js'),
+              res
+            );
+          }
+
           if (fs.existsSync(expectedDirectoryByVersion)) {
             compareDirectory(
               outputDirectoryForCase,
               expectedDirectoryByVersion
             );
-          } else {
+          } else if (fs.existsSync(expectedDirectory)) {
             compareDirectory(outputDirectoryForCase, expectedDirectory);
           }
 
-          const expectedWarning = path.resolve(directoryForCase, 'warnings.js');
-          const actualWarning = stats.toString({
-            all: false,
-            warnings: true,
-          });
-          compareWarning(actualWarning, expectedWarning);
+          const warningsFile = path.resolve(directoryForCase, 'warnings.js');
+
+          if (fs.existsSync(warningsFile)) {
+            const actualWarnings = stats.toString({
+              all: false,
+              warnings: true,
+            });
+            // eslint-disable-next-line global-require, import/no-dynamic-require
+            const expectedWarnings = require(warningsFile);
+
+            expect(
+              actualWarnings
+                .trim()
+                .replace(/\*\scss\s(.*)?!/g, '* css /path/to/loader.js!')
+            ).toBe(
+              expectedWarnings
+                .trim()
+                .replace(/\*\scss\s(.*)?!/g, '* css /path/to/loader.js!')
+            );
+          }
 
           done();
         });

@@ -1,3 +1,4 @@
+// eslint-disable-next-line import/no-extraneous-dependencies
 const WebpackRtlPlugin = require('webpack-rtl-plugin');
 
 const Self = require('../../');
@@ -5,17 +6,17 @@ const Self = require('../../');
 const ENABLE_HMR =
   typeof process.env.ENABLE_HMR !== 'undefined'
     ? Boolean(process.env.ENABLE_HMR)
-    : false;
+    : true;
 
 const ENABLE_ES_MODULE =
   typeof process.env.ES_MODULE !== 'undefined'
     ? Boolean(process.env.ES_MODULE)
-    : false;
+    : true;
 
 module.exports = {
   mode: 'development',
   output: {
-    chunkFilename: '[contenthash].js',
+    chunkFilename: '[name].chunk.js',
     publicPath: '/dist/',
     crossOriginLoading: 'anonymous',
   },
@@ -27,9 +28,6 @@ module.exports = {
         use: [
           {
             loader: Self.loader,
-            options: {
-              hmr: ENABLE_HMR,
-            },
           },
           {
             loader: 'css-loader',
@@ -45,7 +43,7 @@ module.exports = {
           {
             loader: Self.loader,
             options: {
-              hmr: ENABLE_HMR,
+              esModule: ENABLE_ES_MODULE,
             },
           },
           {
@@ -69,6 +67,7 @@ module.exports = {
     new WebpackRtlPlugin(),
   ],
   devServer: {
+    hot: ENABLE_HMR,
     contentBase: __dirname,
     headers: {
       'Access-Control-Allow-Origin': '*',

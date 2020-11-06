@@ -5,7 +5,7 @@
   func-names
 */
 
-const normalizeUrl = require('normalize-url');
+const normalizeUrl = require('./normalize-url');
 
 const srcByModuleId = Object.create(null);
 
@@ -16,7 +16,7 @@ const { forEach } = Array.prototype;
 function debounce(fn, time) {
   let timeout = 0;
 
-  return function() {
+  return function () {
     const self = this;
     // eslint-disable-next-line prefer-rest-params
     const args = arguments;
@@ -50,7 +50,7 @@ function getCurrentScriptUrl(moduleId) {
     srcByModuleId[moduleId] = src;
   }
 
-  return function(fileMap) {
+  return function (fileMap) {
     if (!src) {
       return null;
     }
@@ -70,8 +70,7 @@ function getCurrentScriptUrl(moduleId) {
       const reg = new RegExp(`${filename}\\.js$`, 'g');
 
       return normalizeUrl(
-        src.replace(reg, `${mapRule.replace(/{fileName}/g, filename)}.css`),
-        { stripWWW: false }
+        src.replace(reg, `${mapRule.replace(/{fileName}/g, filename)}.css`)
       );
     });
   };
@@ -144,6 +143,10 @@ function getReloadUrl(href, src) {
 }
 
 function reloadStyle(src) {
+  if (!src) {
+    return false;
+  }
+
   const elements = document.querySelectorAll('link');
   let loaded = false;
 
@@ -195,7 +198,7 @@ function isUrlRequest(url) {
   return true;
 }
 
-module.exports = function(moduleId, options) {
+module.exports = function (moduleId, options) {
   if (noDocument) {
     console.log('no window.document found, will not HMR CSS');
 
@@ -216,7 +219,7 @@ module.exports = function(moduleId, options) {
       return;
     }
 
-    if (reloaded && !options.reloadAll) {
+    if (reloaded) {
       console.log('[HMR] css reload %s', src.join(' '));
     } else {
       console.log('[HMR] Reload all css');

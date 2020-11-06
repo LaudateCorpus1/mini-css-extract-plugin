@@ -1,27 +1,44 @@
+import { version as webpackVersion } from 'webpack';
+
 import MiniCssExtractPlugin from '../src';
 
 describe('validate options', () => {
   const tests = {
     filename: {
-      success: ['[name].css'],
+      success: [
+        '[name].css',
+        ({ name }) => `${name.replace('/js/', '/css/')}.css`,
+      ],
       failure: [true],
     },
     chunkFilename: {
-      success: ['[id].css'],
-      failure: [true],
-    },
-    moduleFilename: {
-      success: [({ name }) => `${name.replace('/js/', '/css/')}.css`],
+      success: [
+        '[id].css',
+        webpackVersion[0] === '4'
+          ? '[id].[name].css'
+          : ({ chunk }) => `${chunk.id}.${chunk.name}.css`,
+      ],
       failure: [true],
     },
     ignoreOrder: {
       success: [true, false],
       failure: [1],
     },
+    insert: {
+      success: ['#existing-style', function insert() {}],
+      failure: [1, true, {}],
+    },
+    attributes: {
+      success: [{}, { id: 'id' }],
+      failure: [true],
+    },
+    linkType: {
+      success: [true, false, 'text/css'],
+      failure: [1, {}, [], 'invalid/type'],
+    },
     unknown: {
       success: [],
-      // TODO failed in next release
-      // failure: [1, true, false, 'test', /test/, [], {}, { foo: 'bar' }],
+      failure: [1, true, false, 'test', /test/, [], {}, { foo: 'bar' }],
     },
   };
 

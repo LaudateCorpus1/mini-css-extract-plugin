@@ -10,18 +10,13 @@ describe('validate options', () => {
       success: [true, false],
       failure: [1],
     },
-    hmr: {
-      success: [true, false],
-      failure: [1],
-    },
-    reloadAll: {
-      success: [true, false],
-      failure: [1],
+    modules: {
+      success: [{ namedExport: true }, { namedExport: false }],
+      failure: ['true', { namedExport: 'false' }],
     },
     unknown: {
       success: [],
-      // TODO failed in next release
-      // failure: [1, true, false, 'test', /test/, [], {}, { foo: 'bar' }],
+      failure: [1, true, false, 'test', /test/, [], {}, { foo: 'bar' }],
     },
   };
 
