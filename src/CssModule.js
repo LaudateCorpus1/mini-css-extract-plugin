@@ -119,7 +119,7 @@ class CssModule extends webpack.Module {
 if (webpack.util && webpack.util.serialization) {
   webpack.util.serialization.register(
     CssModule,
-    'mini-css-extract-plugin/dist/CssModule',
+    '@chesscom/mini-css-extract-plugin/dist/CssModule',
     null,
     {
       serialize(instance, context) {

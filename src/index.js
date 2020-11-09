@@ -20,7 +20,7 @@ const {
   util: { createHash },
 } = webpack;
 
-const pluginName = 'mini-css-extract-plugin';
+const pluginName = '@chesscom/mini-css-extract-plugin';
 
 const REGEXP_CHUNKHASH = /\[chunkhash(?::(\d+))?\]/i;
 const REGEXP_CONTENTHASH = /\[contenthash(?::(\d+))?\]/i;

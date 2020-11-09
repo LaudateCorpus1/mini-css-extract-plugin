@@ -13,7 +13,7 @@ import CssDependency from './CssDependency';
 import { findModuleById, evalModuleCode } from './utils';
 import schema from './loader-options.json';
 
-const pluginName = 'mini-css-extract-plugin';
+const pluginName = '@chesscom/mini-css-extract-plugin';
 
 function hotLoader(content, context) {
   const accept = context.locals
