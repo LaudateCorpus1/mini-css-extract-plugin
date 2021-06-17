@@ -7,6 +7,8 @@ import path from 'path';
 
 import webpack from 'webpack';
 
+import Self from '../src/index';
+
 function clearDirectory(dirPath) {
   let files;
 
@@ -93,6 +95,10 @@ describe('TestCases', () => {
     if (!/^(\.|_)/.test(directory)) {
       // eslint-disable-next-line no-loop-func
       it(`${directory} should compile to the expected result`, (done) => {
+        if (directory === 'serializingBigStrings') {
+          clearDirectory(path.resolve(__dirname, '../node_modules/.cache'));
+        }
+
         const directoryForCase = path.resolve(casesDirectory, directory);
         const outputDirectoryForCase = path.resolve(outputDirectory, directory);
         // eslint-disable-next-line import/no-dynamic-require, global-require
@@ -100,6 +106,7 @@ describe('TestCases', () => {
           directoryForCase,
           'webpack.config.js'
         ));
+        const { context } = webpackConfig;
 
         for (const config of [].concat(webpackConfig)) {
           Object.assign(
@@ -107,28 +114,65 @@ describe('TestCases', () => {
             {
               mode: 'none',
               context: directoryForCase,
+            },
+            config,
+            {
               output: Object.assign(
                 {
                   path: outputDirectoryForCase,
                 },
                 config.output
               ),
+              plugins:
+                config.plugins &&
+                config.plugins.map((p) => {
+                  if (p.constructor === Self) {
+                    const { options } = p;
+                    options.experimentalUseImportModule =
+                      !!process.env.EXPERIMENTAL_USE_IMPORT_MODULE;
+                  }
+                  return p;
+                }),
             },
-            config
+            context ? { context } : {}
           );
         }
 
-        webpack(webpackConfig, (err, stats) => {
-          if (err) {
-            done(err);
-            return;
-          }
-          if (stats.hasErrors()) {
-            done(new Error(stats.toString()));
+        webpack(webpackConfig, (error, stats) => {
+          if (error) {
+            done(error);
+
             return;
           }
 
-          done();
+          if (stats.hasErrors()) {
+            const errorsPath = path.join(directoryForCase, './errors.test.js');
+
+            if (fs.existsSync(errorsPath)) {
+              const { errors } = stats.compilation;
+              // eslint-disable-next-line global-require, import/no-dynamic-require
+              const errorFilters = require(errorsPath);
+              const filteredErrors = errors.filter(
+                // eslint-disable-next-line no-shadow
+                (error) =>
+                  !errorFilters.some((errorFilter) => errorFilter.test(error))
+              );
+
+              if (filteredErrors.length > 0) {
+                done(new Error(`Errors:\n${filteredErrors.join(',\n')}`));
+
+                return;
+              }
+
+              done();
+
+              return;
+            }
+
+            done(new Error(stats.toString()));
+
+            return;
+          }
 
           if (stats.hasErrors() && stats.hasWarnings()) {
             done(
@@ -147,7 +191,9 @@ describe('TestCases', () => {
           const expectedDirectory = path.resolve(directoryForCase, 'expected');
           const expectedDirectoryByVersion = path.join(
             expectedDirectory,
-            `webpack-${webpack.version[0]}`
+            `webpack-${webpack.version[0]}${
+              process.env.EXPERIMENTAL_USE_IMPORT_MODULE ? '-importModule' : ''
+            }`
           );
 
           if (/^hmr/.test(directory)) {
@@ -170,14 +216,16 @@ describe('TestCases', () => {
               );
             } else {
               const matchAll = res.match(
-                /__webpack_require__\.h = \(\) => "([\d\w].*)"/i
+                /__webpack_require__\.h = \(\) => \(("[\d\w].*")\)/i
               );
 
               const replacer = new Array(matchAll[1].length);
 
               res = res.replace(
-                /__webpack_require__\.h = \(\) => "([\d\w].*)"/i,
-                `__webpack_require__.h = () => "${replacer.fill('x').join('')}"`
+                /__webpack_require__\.h = \(\) => \(("[\d\w].*")\)/i,
+                `__webpack_require__.h = () => ("${replacer
+                  .fill('x')
+                  .join('')}")`
               );
             }
 

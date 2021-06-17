@@ -13,6 +13,11 @@ const ENABLE_ES_MODULE =
     ? Boolean(process.env.ES_MODULE)
     : true;
 
+const ENABLE_EXPERIMENTAL_USE_IMPORT_MODULE =
+  typeof process.env.EXPERIMENTAL_USE_IMPORT_MODULE !== 'undefined'
+    ? Boolean(process.env.EXPERIMENTAL_USE_IMPORT_MODULE)
+    : true;
+
 module.exports = {
   mode: 'development',
   output: {
@@ -63,6 +68,7 @@ module.exports = {
       chunkFilename: '[name].chunk.client.css',
       globalRTLFlag: 'rtlLanguageEnabled',
       // outputPublicPath: '/bundles/css/',
+      experimentalUseImportModule: ENABLE_EXPERIMENTAL_USE_IMPORT_MODULE,
     }),
     new WebpackRtlPlugin(),
   ],
