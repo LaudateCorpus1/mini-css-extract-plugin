@@ -1,7 +1,6 @@
 module.exports = {
-  testURL: 'http://localhost/',
-  transformIgnorePatterns: ['/node_modules/', '<rootDir>/dist/'],
-  watchPathIgnorePatterns: ['<rootDir>/test/js'],
-  setupFilesAfterEnv: ['<rootDir>/setupTest.js'],
-  snapshotResolver: './test/helpers/snapshotResolver.js',
+  testURL: "http://localhost/",
+  transformIgnorePatterns: ["/node_modules/", "<rootDir>/dist/"],
+  watchPathIgnorePatterns: ["<rootDir>/test/js"],
+  setupFilesAfterEnv: ["<rootDir>/setupTest.js"],
 };

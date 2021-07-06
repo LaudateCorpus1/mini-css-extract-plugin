@@ -1,22 +1,22 @@
-import path from 'path';
+import path from "path";
 
-import webpack from 'webpack';
-import { createFsFromVolume, Volume } from 'memfs';
+import webpack from "webpack";
+import { createFsFromVolume, Volume } from "memfs";
 
-import MiniCssExtractPlugin from '../../src';
+import MiniCssExtractPlugin from "../../src";
 
 export default (fixture, loaderOptions = {}, config = {}) => {
   const { outputFileSystem, ...cnfg } = config;
 
   const fullConfig = {
-    mode: 'development',
+    mode: "development",
     devtool: cnfg.devtool || false,
-    context: path.resolve(__dirname, '../fixtures'),
-    entry: path.resolve(__dirname, '../fixtures', fixture),
+    context: path.resolve(__dirname, "../fixtures"),
+    entry: path.resolve(__dirname, "../fixtures", fixture),
     output: {
-      path: path.resolve(__dirname, '../outputs'),
-      filename: '[name].bundle.js',
-      chunkFilename: '[name].chunk.js',
+      path: path.resolve(__dirname, "../outputs"),
+      filename: "[name].bundle.js",
+      chunkFilename: "[name].chunk.js",
     },
     module: {
       rules: [
@@ -28,40 +28,24 @@ export default (fixture, loaderOptions = {}, config = {}) => {
               options: loaderOptions || {},
             },
             {
-              loader: 'css-loader',
+              loader: "css-loader",
             },
           ],
         },
-      ].concat(
-        webpack.version[0] !== '4'
-          ? {
-              test: /\.svg$/,
-              type: 'asset/resource',
-              generator: {
-                filename: '[name][ext]',
-              },
-            }
-          : [
-              {
-                test: /\.svg$/i,
-                rules: [
-                  {
-                    loader: 'file-loader',
-                    options: {
-                      name: '[name].[ext]',
-                    },
-                  },
-                ],
-              },
-            ]
-      ),
+      ].concat({
+        test: /\.svg$/,
+        type: "asset/resource",
+        generator: {
+          filename: "[name][ext]",
+        },
+      }),
     },
     plugins: [
       new MiniCssExtractPlugin({
         // Options similar to the same options in webpackOptions.output
         // both options are optional
-        filename: '[name].css',
-        chunkFilename: '[id].css',
+        filename: "[name].css",
+        chunkFilename: "[id].css",
       }),
     ],
     ...cnfg,
@@ -70,11 +54,7 @@ export default (fixture, loaderOptions = {}, config = {}) => {
   const compiler = webpack(fullConfig);
 
   if (!outputFileSystem) {
-    const outputFS = createFsFromVolume(new Volume());
-    // Todo remove when we drop webpack@4 support
-    outputFS.join = path.join.bind(path);
-
-    compiler.outputFileSystem = outputFS;
+    compiler.outputFileSystem = createFsFromVolume(new Volume());
   } else {
     compiler.outputFileSystem = outputFileSystem;
   }

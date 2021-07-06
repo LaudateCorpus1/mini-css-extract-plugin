@@ -1,17 +1,13 @@
-import webpack from 'webpack';
+import { getCompiler, source, compile } from "./helpers";
 
-import { getCompiler, source, compile } from './helpers';
-
-const isWebpack4 = webpack.version[0] === '4';
-
-it('should enforce esm for empty module without options.esModule', async () => {
+it("should enforce esm for empty module without options.esModule", async () => {
   expect.assertions(3);
 
   const compiler = getCompiler(
-    './esm.js',
+    "./esm.js",
     {},
     {
-      mode: 'production',
+      mode: "production",
       optimization: { minimize: false },
     }
   );
@@ -19,22 +15,22 @@ it('should enforce esm for empty module without options.esModule', async () => {
   expect(stats.hasErrors()).toBe(false);
   const { modules } = stats.toJson({ all: false, modules: true });
   expect(
-    modules.filter((m) => m.moduleType !== 'runtime' && !m.orphan).length
-  ).toBe(isWebpack4 ? 1 : 2);
-  expect(source('./simple.css', stats)).toMatchInlineSnapshot(`
+    modules.filter((m) => m.moduleType !== "runtime" && !m.orphan).length
+  ).toBe(2);
+  expect(source("./simple.css", stats)).toMatchInlineSnapshot(`
     "// extracted by mini-css-extract-plugin
     export {};"
   `);
 });
 
-it('should enforce esm for empty module with options.esModule', async () => {
+it("should enforce esm for empty module with options.esModule", async () => {
   expect.assertions(3);
 
   const compiler = getCompiler(
-    './esm.js',
+    "./esm.js",
     { esModule: true },
     {
-      mode: 'production',
+      mode: "production",
       optimization: { minimize: false },
     }
   );
@@ -42,9 +38,9 @@ it('should enforce esm for empty module with options.esModule', async () => {
   expect(stats.hasErrors()).toBe(false);
   const { modules } = stats.toJson({ all: false, modules: true });
   expect(
-    modules.filter((m) => m.moduleType !== 'runtime' && !m.orphan).length
-  ).toBe(isWebpack4 ? 1 : 2);
-  expect(source('./simple.css', stats)).toMatchInlineSnapshot(`
+    modules.filter((m) => m.moduleType !== "runtime" && !m.orphan).length
+  ).toBe(2);
+  expect(source("./simple.css", stats)).toMatchInlineSnapshot(`
     "// extracted by mini-css-extract-plugin
     export {};"
   `);
@@ -54,10 +50,10 @@ it('should keep empty module when options.esModule is equal "false"', async () =
   expect.assertions(3);
 
   const compiler = getCompiler(
-    './esm.js',
+    "./esm.js",
     { esModule: false },
     {
-      mode: 'production',
+      mode: "production",
       optimization: { minimize: false },
     }
   );
@@ -65,9 +61,9 @@ it('should keep empty module when options.esModule is equal "false"', async () =
   expect(stats.hasErrors()).toBe(false);
   const { modules } = stats.toJson({ all: false, modules: true });
   expect(
-    modules.filter((m) => m.moduleType !== 'runtime' && !m.orphan).length
+    modules.filter((m) => m.moduleType !== "runtime" && !m.orphan).length
   ).toBe(2);
-  expect(source('./simple.css', stats)).toMatchInlineSnapshot(
+  expect(source("./simple.css", stats)).toMatchInlineSnapshot(
     `"// extracted by mini-css-extract-plugin"`
   );
 });

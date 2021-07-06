@@ -1,30 +1,27 @@
-import path from 'path';
+import path from "path";
 
-import { createFsFromVolume, Volume } from 'memfs';
-import webpack from 'webpack';
+import { createFsFromVolume, Volume } from "memfs";
+import webpack from "webpack";
 
 const assetsNames = (assets) => assets.map((asset) => asset.name);
 
-describe('TestMemoryFS', () => {
-  it('should preserve asset even if not emitted', (done) => {
-    const casesDirectory = path.resolve(__dirname, 'cases');
-    const directoryForCase = path.resolve(casesDirectory, 'simple-publicpath');
+describe("TestMemoryFS", () => {
+  it("should preserve asset even if not emitted", (done) => {
+    const casesDirectory = path.resolve(__dirname, "cases");
+    const directoryForCase = path.resolve(casesDirectory, "simple-publicpath");
     // eslint-disable-next-line import/no-dynamic-require, global-require
     const webpackConfig = require(path.resolve(
       directoryForCase,
-      'webpack.config.js'
+      "webpack.config.js"
     ));
     const compiler = webpack({
       ...webpackConfig,
-      mode: 'development',
+      mode: "development",
       context: directoryForCase,
       cache: false,
     });
-    const outputFileSystem = createFsFromVolume(new Volume());
-    // Todo remove when we drop webpack@4 support
-    outputFileSystem.join = path.join.bind(path);
 
-    compiler.outputFileSystem = outputFileSystem;
+    compiler.outputFileSystem = createFsFromVolume(new Volume());
 
     compiler.run((err1, stats1) => {
       if (err1) {
