@@ -1,11 +1,7 @@
-<<<<<<< HEAD
 // eslint-disable-next-line import/no-extraneous-dependencies
-const WebpackRtlPlugin = require('webpack-rtl-plugin');
+const WebpackRtlPlugin = require("webpack-rtl-plugin");
 
-const Self = require('../../');
-=======
 const Self = require("../../");
->>>>>>> 31b678c17af720cf1c80815f1771fe2fa2e6ae1f
 
 const ENABLE_HMR =
   typeof process.env.ENABLE_HMR !== "undefined"
@@ -68,9 +64,9 @@ module.exports = {
   },
   plugins: [
     new Self({
-      filename: '[name].client.css',
-      chunkFilename: '[name].chunk.client.css',
-      globalRTLFlag: 'rtlLanguageEnabled',
+      filename: "[name].client.css",
+      chunkFilename: "[name].chunk.client.css",
+      globalRTLFlag: "rtlLanguageEnabled",
       // outputPublicPath: '/bundles/css/',
       experimentalUseImportModule: ENABLE_EXPERIMENTAL_USE_IMPORT_MODULE,
     }),

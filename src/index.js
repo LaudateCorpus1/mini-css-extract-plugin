@@ -77,8 +77,9 @@ class MiniCssExtractPlugin {
       }
 
       readableIdentifier(requestShortener) {
-        return `css ${requestShortener.shorten(this._identifier)}${this._identifierIndex ? ` (${this._identifierIndex})` : ""
-          }`;
+        return `css ${requestShortener.shorten(this._identifier)}${
+          this._identifierIndex ? ` (${this._identifierIndex})` : ""
+        }`;
       }
 
       // eslint-disable-next-line class-methods-use-this
@@ -442,7 +443,7 @@ class MiniCssExtractPlugin {
 
       class CssDependencyTemplate {
         // eslint-disable-next-line class-methods-use-this
-        apply() { }
+        apply() {}
       }
 
       compilation.dependencyTemplates.set(
@@ -580,22 +581,22 @@ class MiniCssExtractPlugin {
                 'var linkTag = document.createElement("link");',
                 this.runtimeOptions.attributes
                   ? Template.asString(
-                    Object.entries(this.runtimeOptions.attributes).map(
-                      (entry) => {
-                        const [key, value] = entry;
+                      Object.entries(this.runtimeOptions.attributes).map(
+                        (entry) => {
+                          const [key, value] = entry;
 
-                        return `linkTag.setAttribute(${JSON.stringify(
-                          key
-                        )}, ${JSON.stringify(value)});`;
-                      }
+                          return `linkTag.setAttribute(${JSON.stringify(
+                            key
+                          )}, ${JSON.stringify(value)});`;
+                        }
+                      )
                     )
-                  )
                   : "",
                 'linkTag.rel = "stylesheet";',
                 this.runtimeOptions.linkType
                   ? `linkTag.type = ${JSON.stringify(
-                    this.runtimeOptions.linkType
-                  )};`
+                      this.runtimeOptions.linkType
+                    )};`
                   : "",
                 `var onLinkComplete = ${runtimeTemplate.basicFunction("event", [
                   "// avoid mem leaks.",
@@ -619,22 +620,22 @@ class MiniCssExtractPlugin {
                 "linkTag.href = fullhref;",
                 crossOriginLoading
                   ? Template.asString([
-                    `if (linkTag.href.indexOf(window.location.origin + '/') !== 0) {`,
-                    Template.indent(
-                      `linkTag.crossOrigin = ${JSON.stringify(
-                        crossOriginLoading
-                      )};`
-                    ),
-                    "}",
-                  ])
+                      `if (linkTag.href.indexOf(window.location.origin + '/') !== 0) {`,
+                      Template.indent(
+                        `linkTag.crossOrigin = ${JSON.stringify(
+                          crossOriginLoading
+                        )};`
+                      ),
+                      "}",
+                    ])
                   : "",
                 typeof this.runtimeOptions.insert !== "undefined"
                   ? typeof this.runtimeOptions.insert === "function"
                     ? `(${this.runtimeOptions.insert.toString()})(linkTag)`
                     : Template.asString([
-                      `var target = document.querySelector("${this.runtimeOptions.insert}");`,
-                      `target.parentNode.insertBefore(linkTag, target.nextSibling);`,
-                    ])
+                        `var target = document.querySelector("${this.runtimeOptions.insert}");`,
+                        `target.parentNode.insertBefore(linkTag, target.nextSibling);`,
+                      ])
                   : Template.asString(["document.head.appendChild(linkTag);"]),
                 "return linkTag;",
               ]
@@ -666,98 +667,114 @@ class MiniCssExtractPlugin {
                 "resolve, reject",
                 [
                   `var href = ${RuntimeGlobals.require}.miniCssF(chunkId);`,
-                  `var fullhref = ${RuntimeGlobals.publicPath} + href;`,
+                  `var fetchRTL = ${
+                    this.runtimeOptions.globalRTLFlag
+                      ? `window['${this.runtimeOptions.globalRTLFlag}']`
+                      : false
+                  };`,
+                  `var fullhref = ${
+                    this.runtimeOptions.outputPublicPath
+                      ? `'${this.runtimeOptions.outputPublicPath}'`
+                      : RuntimeGlobals.publicPath
+                  } + href;`,
                   "if(findStylesheet(href, fullhref)) return resolve();",
+                  "if (fetchRTL) {",
+                  Template.indent([
+                    `fullhref = fullhref.replace(/\\.css/i, '.rtl.css');`,
+                  ]),
+                  "}",
                   "createStylesheet(chunkId, fullhref, resolve, reject);",
                 ]
               )});`
             )}`,
             withLoading
               ? Template.asString([
-                "// object to store loaded CSS chunks",
-                "var installedCssChunks = {",
-                Template.indent(
-                  chunk.ids
-                    .map((id) => `${JSON.stringify(id)}: 0`)
-                    .join(",\n")
-                ),
-                "};",
-                "",
-                `${RuntimeGlobals.ensureChunkHandlers
-                }.miniCss = ${runtimeTemplate.basicFunction(
-                  "chunkId, promises",
-                  [
-                    `var cssChunks = ${JSON.stringify(chunkMap)};`,
-                    "if(installedCssChunks[chunkId]) promises.push(installedCssChunks[chunkId]);",
-                    "else if(installedCssChunks[chunkId] !== 0 && cssChunks[chunkId]) {",
-                    Template.indent([
-                      `promises.push(installedCssChunks[chunkId] = loadStylesheet(chunkId).then(${runtimeTemplate.basicFunction(
-                        "",
-                        "installedCssChunks[chunkId] = 0;"
-                      )}, ${runtimeTemplate.basicFunction("e", [
-                        "delete installedCssChunks[chunkId];",
-                        "throw e;",
-                      ])}));`,
-                    ]),
-                    "}",
-                  ]
-                )};`,
-              ])
+                  "// object to store loaded CSS chunks",
+                  "var installedCssChunks = {",
+                  Template.indent(
+                    chunk.ids
+                      .map((id) => `${JSON.stringify(id)}: 0`)
+                      .join(",\n")
+                  ),
+                  "};",
+                  "",
+                  `${
+                    RuntimeGlobals.ensureChunkHandlers
+                  }.miniCss = ${runtimeTemplate.basicFunction(
+                    "chunkId, promises",
+                    [
+                      `var cssChunks = ${JSON.stringify(chunkMap)};`,
+                      "if(installedCssChunks[chunkId]) promises.push(installedCssChunks[chunkId]);",
+                      "else if(installedCssChunks[chunkId] !== 0 && cssChunks[chunkId]) {",
+                      Template.indent([
+                        `promises.push(installedCssChunks[chunkId] = loadStylesheet(chunkId).then(${runtimeTemplate.basicFunction(
+                          "",
+                          "installedCssChunks[chunkId] = 0;"
+                        )}, ${runtimeTemplate.basicFunction("e", [
+                          "delete installedCssChunks[chunkId];",
+                          "throw e;",
+                        ])}));`,
+                      ]),
+                      "}",
+                    ]
+                  )};`,
+                ])
               : "// no chunk loading",
             "",
             withHmr
               ? Template.asString([
-                "var oldTags = [];",
-                "var newTags = [];",
-                `var applyHandler = ${runtimeTemplate.basicFunction(
-                  "options",
-                  [
-                    `return { dispose: ${runtimeTemplate.basicFunction("", [
-                      "for(var i = 0; i < oldTags.length; i++) {",
-                      Template.indent([
-                        "var oldTag = oldTags[i];",
-                        "if(oldTag.parentNode) oldTag.parentNode.removeChild(oldTag);",
-                      ]),
-                      "}",
-                      "oldTags.length = 0;",
-                    ])}, apply: ${runtimeTemplate.basicFunction("", [
-                      'for(var i = 0; i < newTags.length; i++) newTags[i].rel = "stylesheet";',
-                      "newTags.length = 0;",
-                    ])} };`,
-                  ]
-                )}`,
-                `${RuntimeGlobals.hmrDownloadUpdateHandlers
-                }.miniCss = ${runtimeTemplate.basicFunction(
-                  "chunkIds, removedChunks, removedModules, promises, applyHandlers, updatedModulesList",
-                  [
-                    "applyHandlers.push(applyHandler);",
-                    `chunkIds.forEach(${runtimeTemplate.basicFunction(
-                      "chunkId",
-                      [
-                        `var href = ${RuntimeGlobals.require}.miniCssF(chunkId);`,
-                        `var fullhref = ${RuntimeGlobals.publicPath} + href;`,
-                        "var oldTag = findStylesheet(href, fullhref);",
-                        "if(!oldTag) return;",
-                        `promises.push(new Promise(${runtimeTemplate.basicFunction(
-                          "resolve, reject",
-                          [
-                            `var tag = createStylesheet(chunkId, fullhref, ${runtimeTemplate.basicFunction(
-                              "",
-                              [
-                                'tag.as = "style";',
-                                'tag.rel = "preload";',
-                                "resolve();",
-                              ]
-                            )}, reject);`,
-                            "oldTags.push(oldTag);",
-                            "newTags.push(tag);",
-                          ]
-                        )}));`,
-                      ]
-                    )});`,
-                  ]
-                )}`,
-              ])
+                  "var oldTags = [];",
+                  "var newTags = [];",
+                  `var applyHandler = ${runtimeTemplate.basicFunction(
+                    "options",
+                    [
+                      `return { dispose: ${runtimeTemplate.basicFunction("", [
+                        "for(var i = 0; i < oldTags.length; i++) {",
+                        Template.indent([
+                          "var oldTag = oldTags[i];",
+                          "if(oldTag.parentNode) oldTag.parentNode.removeChild(oldTag);",
+                        ]),
+                        "}",
+                        "oldTags.length = 0;",
+                      ])}, apply: ${runtimeTemplate.basicFunction("", [
+                        'for(var i = 0; i < newTags.length; i++) newTags[i].rel = "stylesheet";',
+                        "newTags.length = 0;",
+                      ])} };`,
+                    ]
+                  )}`,
+                  `${
+                    RuntimeGlobals.hmrDownloadUpdateHandlers
+                  }.miniCss = ${runtimeTemplate.basicFunction(
+                    "chunkIds, removedChunks, removedModules, promises, applyHandlers, updatedModulesList",
+                    [
+                      "applyHandlers.push(applyHandler);",
+                      `chunkIds.forEach(${runtimeTemplate.basicFunction(
+                        "chunkId",
+                        [
+                          `var href = ${RuntimeGlobals.require}.miniCssF(chunkId);`,
+                          `var fullhref = ${RuntimeGlobals.publicPath} + href;`,
+                          "var oldTag = findStylesheet(href, fullhref);",
+                          "if(!oldTag) return;",
+                          `promises.push(new Promise(${runtimeTemplate.basicFunction(
+                            "resolve, reject",
+                            [
+                              `var tag = createStylesheet(chunkId, fullhref, ${runtimeTemplate.basicFunction(
+                                "",
+                                [
+                                  'tag.as = "style";',
+                                  'tag.rel = "preload";',
+                                  "resolve();",
+                                ]
+                              )}, reject);`,
+                              "oldTags.push(oldTag);",
+                              "newTags.push(tag);",
+                            ]
+                          )}));`,
+                        ]
+                      )});`,
+                    ]
+                  )}`,
+                ])
               : "// no hmr",
           ]);
         }
@@ -818,9 +835,9 @@ class MiniCssExtractPlugin {
   getChunkModules(chunk, chunkGraph) {
     return typeof chunkGraph !== "undefined"
       ? chunkGraph.getOrderedChunkModulesIterable(
-        chunk,
-        compareModulesByIdentifier
-      )
+          chunk,
+          compareModulesByIdentifier
+        )
       : chunk.modulesIterable;
   }
 
@@ -944,7 +961,7 @@ class MiniCssExtractPlugin {
                     ` * ${m.readableIdentifier(requestShortener)}`,
                     `   - couldn't fulfill desired order of chunk group(s) ${failedChunkGroups}`,
                     goodChunkGroups &&
-                    `   - while fulfilling desired order of chunk group(s) ${goodChunkGroups}`,
+                      `   - while fulfilling desired order of chunk group(s) ${goodChunkGroups}`,
                   ]
                     .filter(Boolean)
                     .join("\n");
