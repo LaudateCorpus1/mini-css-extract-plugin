@@ -18,7 +18,7 @@
 
 This plugin extracts CSS into separate files. It creates a CSS file per JS file which contains CSS. It supports On-Demand-Loading of CSS and SourceMaps.
 
-It builds on top of a new webpack v4 feature (module types) and requires webpack 4 to work.
+It builds on top of a new webpack v5 feature and requires webpack 5 to work.
 
 Compared to the extract-text-webpack-plugin:
 
@@ -71,19 +71,24 @@ module.exports = {
 };
 ```
 
+> ⚠️ Note that if you import CSS from your webpack entrypoint or import styles in the [initial](https://webpack.js.org/concepts/under-the-hood/#chunks) chunk, `mini-css-extract-plugin` will not load this CSS into the page. Please use [`html-webpack-plugin`](https://github.com/jantimon/html-webpack-plugin) for automatic generation `link` tags or create `index.html` file with `link` tag.
+
+> ⚠️ Source maps works only for `source-map`/`nosources-source-map`/`hidden-nosources-source-map`/`hidden-source-map` values because CSS only supports source maps with the `sourceMappingURL` comment (i.e. `//# sourceMappingURL=style.css.map`). If you need set `devtool` to another value you can enable source maps generation for extracted CSS using [`sourceMap: true`](https://github.com/webpack-contrib/css-loader#sourcemap) for `css-loader`.
+
 ## Options
 
 ### Plugin Options
 
-|                               Name                                |         Type         |                Default                | Description                                                                   |
-| :---------------------------------------------------------------: | :------------------: | :-----------------------------------: | :---------------------------------------------------------------------------- |
-|                    **[`filename`](#filename)**                    | `{String\|Function}` |             `[name].css`              | This option determines the name of each output CSS file                       |
-|               **[`chunkFilename`](#chunkFilename)**               | `{String\|Function}` |          `based on filename`          | This option determines the name of non-entry chunk files                      |
-|                 **[`ignoreOrder`](#ignoreOrder)**                 |     `{Boolean}`      |                `false`                | Remove Order Warnings                                                         |
-|                      **[`insert`](#insert)**                      | `{String\|Function}` | `document.head.appendChild(linkTag);` | Inserts `<link>` at the given position                                        |
-|                  **[`attributes`](#attributes)**                  |      `{Object}`      |                 `{}`                  | Adds custom attributes to tag                                                 |
-|                    **[`linkType`](#linkType)**                    | `{String\|Boolean}`  |              `text/css`               | Allows loading asynchronous chunks with a custom link type                    |
-| **[`experimentalUseImportModule`](#experimentalUseImportModule)** |     `{Boolean}`      |                `false`                | Use an experimental webpack API to execute modules instead of child compilers |
+|                               Name                                |         Type         |                Default                | Description                                                                                                                               |
+| :---------------------------------------------------------------: | :------------------: | :-----------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------- |
+|                    **[`filename`](#filename)**                    | `{String\|Function}` |             `[name].css`              | This option determines the name of each output CSS file                                                                                   |
+|               **[`chunkFilename`](#chunkFilename)**               | `{String\|Function}` |          `based on filename`          | This option determines the name of non-entry chunk files                                                                                  |
+|                 **[`ignoreOrder`](#ignoreOrder)**                 |     `{Boolean}`      |                `false`                | Remove Order Warnings                                                                                                                     |
+|                      **[`insert`](#insert)**                      | `{String\|Function}` | `document.head.appendChild(linkTag);` | Inserts the `link` tag at the given position for [non-initial (async)](https://webpack.js.org/concepts/under-the-hood/#chunks) CSS chunks |
+|                  **[`attributes`](#attributes)**                  |      `{Object}`      |                 `{}`                  | Adds custom attributes to the `link` tag for [non-initial (async)](https://webpack.js.org/concepts/under-the-hood/#chunks) CSS chunks     |
+|                    **[`linkType`](#linkType)**                    | `{String\|Boolean}`  |              `text/css`               | Allows loading asynchronous chunks with a custom link type                                                                                |
+|                     **[`runtime`](#runtime)**                     |     `{Boolean}`      |                `true`                 | Allows to enable/disable the runtime generation                                                                                           |
+| **[`experimentalUseImportModule`](#experimentalUseImportModule)** |     `{Boolean}`      |                `false`                | Use an experimental webpack API to execute modules instead of child compilers                                                             |
 
 #### `filename`
 
@@ -117,6 +122,8 @@ See [examples](#remove-order-warnings) below for details.
 
 Type: `String|Function`
 Default: `document.head.appendChild(linkTag);`
+
+> ⚠️ Only for [non-initial (async)](https://webpack.js.org/concepts/under-the-hood/#chunks) chunks.
 
 By default, the `mini-css-extract-plugin` appends styles (`<link>` elements) to `document.head` of the current `window`.
 
@@ -169,7 +176,9 @@ A new `<link>` element will be inserted before the element with id `some-element
 Type: `Object`
 Default: `{}`
 
-If defined, the `mini-css-extract-plugin` will attach given attributes with their values on <link> element.
+> ⚠️ Only for [non-initial (async)](https://webpack.js.org/concepts/under-the-hood/#chunks) chunks.
+
+If defined, the `mini-css-extract-plugin` will attach given attributes with their values on `<link>` element.
 
 **webpack.config.js**
 
@@ -203,7 +212,7 @@ Note: It's only applied to dynamically loaded css chunks, if you want to modify 
 Type: `String|Boolean`
 Default: `text/css`
 
-This option allows loading asynchronous chunks with a custom link type, such as <link type="text/css" ...>.
+This option allows loading asynchronous chunks with a custom link type, such as `<link type="text/css" ...>`.
 
 ##### `String`
 
@@ -244,6 +253,39 @@ module.exports = {
   plugins: [
     new MiniCssExtractPlugin({
       linkType: false,
+    }),
+  ],
+  module: {
+    rules: [
+      {
+        test: /\.css$/i,
+        use: [MiniCssExtractPlugin.loader, "css-loader"],
+      },
+    ],
+  },
+};
+```
+
+#### `runtime`
+
+Type: `Boolean`
+Default: `true`
+
+Allows to enable/disable the runtime generation.
+CSS will be still extracted and can be used for a custom loading methods.
+For example, you can use [assets-webpack-plugin](https://github.com/ztoben/assets-webpack-plugin) to retreive them then use your own runtime code to download assets when needed.
+
+`true` to skip.
+
+**webpack.config.js**
+
+```js
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
+
+module.exports = {
+  plugins: [
+    new MiniCssExtractPlugin({
+      runtime: false,
     }),
   ],
   module: {
@@ -753,8 +795,6 @@ module.exports = {
         styles: {
           name: "styles",
           type: "css/mini-extract",
-          // For webpack@4
-          // test: /\.css$/,
           chunks: "all",
           enforce: true,
         },
@@ -789,24 +829,6 @@ This also prevents the CSS duplication issue one had with the ExtractTextPlugin.
 const path = require("path");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 
-function recursiveIssuer(m, c) {
-  const issuer = c.moduleGraph.getIssuer(m);
-  // For webpack@4 issuer = m.issuer
-
-  if (issuer) {
-    return recursiveIssuer(issuer, c);
-  }
-
-  const chunks = c.chunkGraph.getModuleChunks(m);
-  // For webpack@4 chunks = m._chunks
-
-  for (const chunk of chunks) {
-    return chunk.name;
-  }
-
-  return false;
-}
-
 module.exports = {
   entry: {
     foo: path.resolve(__dirname, "src/foo"),
@@ -816,19 +838,19 @@ module.exports = {
     splitChunks: {
       cacheGroups: {
         fooStyles: {
+          type: "css/mini-extract",
           name: "styles_foo",
-          test: (m, c, entry = "foo") =>
-            m.constructor.name === "CssModule" &&
-            recursiveIssuer(m, c) === entry,
-          chunks: "all",
+          chunks: (chunk) => {
+            return chunk.name === "foo";
+          },
           enforce: true,
         },
         barStyles: {
+          type: "css/mini-extract",
           name: "styles_bar",
-          test: (m, c, entry = "bar") =>
-            m.constructor.name === "CssModule" &&
-            recursiveIssuer(m, c) === entry,
-          chunks: "all",
+          chunks: (chunk) => {
+            return chunk.name === "bar";
+          },
           enforce: true,
         },
       },
@@ -929,6 +951,150 @@ module.exports = {
     ],
   },
 };
+```
+
+### Multiple Themes
+
+**webpack.config.js**
+
+```js
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
+
+module.exports = {
+  entry: "./src/index.js",
+  module: {
+    rules: [
+      {
+        test: /\.s[ac]ss$/i,
+        oneOf: [
+          {
+            resourceQuery: "?dark",
+            use: [
+              Self.loader,
+              "css-loader",
+              {
+                loader: "sass-loader",
+                options: {
+                  additionalData: `@use 'dark-theme/vars' as vars;`,
+                },
+              },
+            ],
+          },
+          {
+            use: [
+              Self.loader,
+              "css-loader",
+              {
+                loader: "sass-loader",
+                options: {
+                  additionalData: `@use 'light-theme/vars' as vars;`,
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  plugins: [
+    new Self({
+      filename: "[name].css",
+      attributes: {
+        id: "theme",
+      },
+    }),
+  ],
+};
+```
+
+**src/index.js**
+
+```js
+import "./style.scss";
+
+let theme = "light";
+const themes = {};
+
+themes[theme] = document.querySelector("#theme");
+
+async function loadTheme(newTheme) {
+  // eslint-disable-next-line no-console
+  console.log(`CHANGE THEME - ${newTheme}`);
+
+  const themeElement = document.querySelector("#theme");
+
+  if (themeElement) {
+    themeElement.remove();
+  }
+
+  if (themes[newTheme]) {
+    // eslint-disable-next-line no-console
+    console.log(`THEME ALREADY LOADED - ${newTheme}`);
+
+    document.head.appendChild(themes[newTheme]);
+
+    return;
+  }
+
+  if (newTheme === "dark") {
+    // eslint-disable-next-line no-console
+    console.log(`LOADING THEME - ${newTheme}`);
+
+    import(/* webpackChunkName: "dark" */ "./style.scss?dark").then(() => {
+      themes[newTheme] = document.querySelector("#theme");
+
+      // eslint-disable-next-line no-console
+      console.log(`LOADED - ${newTheme}`);
+    });
+  }
+}
+
+document.onclick = () => {
+  if (theme === "light") {
+    theme = "dark";
+  } else {
+    theme = "light";
+  }
+
+  loadTheme(theme);
+};
+```
+
+**src/dark-theme/\_vars.scss**
+
+```scss
+$background: black;
+```
+
+**src/light-theme/\_vars.scss**
+
+```scss
+$background: white;
+```
+
+**src/styles.scss**
+
+```scss
+body {
+  background-color: vars.$background;
+}
+```
+
+**public/index.html**
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Document</title>
+    <link id="theme" rel="stylesheet" type="text/css" href="./main.css" />
+  </head>
+  <body>
+    <script src="./main.js"></script>
+  </body>
+</html>
 ```
 
 ### Media Query Plugin

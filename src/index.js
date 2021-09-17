@@ -9,6 +9,8 @@ import {
   trueFn,
   MODULE_TYPE,
   AUTO_PUBLIC_PATH,
+  ABSOLUTE_PUBLIC_PATH,
+  SINGLE_DOT_PATH_SEGMENT,
   compareModulesByIdentifier,
 } from "./utils";
 
@@ -335,6 +337,7 @@ class MiniCssExtractPlugin {
         filename: DEFAULT_FILENAME,
         ignoreOrder: false,
         experimentalUseImportModule: false,
+        runtime: true,
       },
       options
     );
@@ -520,9 +523,12 @@ class MiniCssExtractPlugin {
         }
       });
 
-      const { Template } = webpack;
+      // All the code below is dedicated to the runtime and can be skipped when the `runtime` option is `false`
+      if (!this.options.runtime) {
+        return;
+      }
 
-      const { RuntimeGlobals, runtime } = webpack;
+      const { Template, RuntimeGlobals, RuntimeModule, runtime } = webpack;
 
       // eslint-disable-next-line no-shadow
       const getCssChunkObject = (mainChunk, compilation) => {
@@ -544,8 +550,6 @@ class MiniCssExtractPlugin {
 
         return obj;
       };
-
-      const { RuntimeModule } = webpack;
 
       class CssLoadingRuntimeModule extends RuntimeModule {
         constructor(runtimeRequirements, runtimeOptions) {
@@ -1005,6 +1009,9 @@ class MiniCssExtractPlugin {
       let content = module.content.toString();
 
       const readableIdentifier = module.readableIdentifier(requestShortener);
+      const startsWithAtRuleImport = /^@import url/.test(content);
+
+      let header;
 
       if (compilation.outputOptions.pathinfo) {
         // From https://github.com/webpack/webpack/blob/29eff8a74ecc2f87517b627dee451c2af9ed3f3f/lib/ModuleInfoHeaderPlugin.js#L191-L194
@@ -1012,10 +1019,14 @@ class MiniCssExtractPlugin {
         const reqStrStar = "*".repeat(reqStr.length);
         const headerStr = `/*!****${reqStrStar}****!*\\\n  !*** ${reqStr} ***!\n  \\****${reqStrStar}****/\n`;
 
-        content = headerStr + content;
+        header = new RawSource(headerStr);
       }
 
-      if (/^@import url/.test(content)) {
+      if (startsWithAtRuleImport) {
+        if (typeof header !== "undefined") {
+          externalsSource.add(header);
+        }
+
         // HACK for IE
         // http://stackoverflow.com/a/14676665/1458162
         if (module.media) {
@@ -1028,6 +1039,10 @@ class MiniCssExtractPlugin {
         externalsSource.add(content);
         externalsSource.add("\n");
       } else {
+        if (typeof header !== "undefined") {
+          source.add(header);
+        }
+
         if (module.media) {
           source.add(`@media ${module.media} {\n`);
         }
@@ -1039,6 +1054,11 @@ class MiniCssExtractPlugin {
 
         const undoPath = getUndoPath(filename, compiler.outputPath, false);
 
+        content = content.replace(new RegExp(ABSOLUTE_PUBLIC_PATH, "g"), "");
+        content = content.replace(
+          new RegExp(SINGLE_DOT_PATH_SEGMENT, "g"),
+          "."
+        );
         content = content.replace(new RegExp(AUTO_PUBLIC_PATH, "g"), undoPath);
 
         if (module.sourceMap) {

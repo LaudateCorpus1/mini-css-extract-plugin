@@ -74,7 +74,7 @@ module.exports = {
   ],
   devServer: {
     hot: ENABLE_HMR,
-    contentBase: __dirname,
+    static: __dirname,
     headers: {
       "Access-Control-Allow-Origin": "*",
     },

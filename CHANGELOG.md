@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.3.0](https://github.com/webpack-contrib/mini-css-extract-plugin/compare/v2.2.2...v2.3.0) (2021-09-11)
+
+
+### Features
+
+* added the `runtime` option ([#831](https://github.com/webpack-contrib/mini-css-extract-plugin/issues/831)) ([5cc73e6](https://github.com/webpack-contrib/mini-css-extract-plugin/commit/5cc73e6b590632263fc6ea0a830df1322520c2f4))
+
+
+### Bug Fixes
+
+* better description for async chunk options ([34b65ac](https://github.com/webpack-contrib/mini-css-extract-plugin/commit/34b65ac4daea5a977a75846b159becbc2ebb0632))
+
+### [2.2.2](https://github.com/webpack-contrib/mini-css-extract-plugin/compare/v2.2.1...v2.2.2) (2021-09-01)
+
+
+### Bug Fixes
+
+* `experimentalUseImportModule` works with `new URL(...)` syntax ([cf81c4b](https://github.com/webpack-contrib/mini-css-extract-plugin/commit/cf81c4b9962e74d666f6bb7d6473a9b6c06936cd))
+
+### [2.2.1](https://github.com/webpack-contrib/mini-css-extract-plugin/compare/v2.2.0...v2.2.1) (2021-08-31)
+
+
+### Bug Fixes
+
+* order of `@import` with the `output.pathinfo` option ([#815](https://github.com/webpack-contrib/mini-css-extract-plugin/issues/815)) ([831f771](https://github.com/webpack-contrib/mini-css-extract-plugin/commit/831f771b3c5e59978dbc53f1ccc90e23a9e30e9b))
+* source map generation with the `output.pathinfo` option ([#817](https://github.com/webpack-contrib/mini-css-extract-plugin/issues/817)) ([f813b4c](https://github.com/webpack-contrib/mini-css-extract-plugin/commit/f813b4c7b72383b8777da74b90830be20db6a483))
+
+## [2.2.0](https://github.com/webpack-contrib/mini-css-extract-plugin/compare/v2.0.0...v2.2.0) (2021-08-04)
+
+
+### Features
+
+* add `link` and `description` for options ([#786](https://github.com/webpack-contrib/mini-css-extract-plugin/issues/786)) ([3c5a5b7](https://github.com/webpack-contrib/mini-css-extract-plugin/commit/3c5a5b7aba8ed855368a7e95d89420b97dcd1531))
+
+
+### Bug Fixes
+
+* hmr in browser extension ([3d09da1](https://github.com/webpack-contrib/mini-css-extract-plugin/commit/3d09da1abb9250b39c6a15efd33950aa19efb0b3))
+
+## [2.1.0](https://github.com/webpack-contrib/mini-css-extract-plugin/compare/v2.0.0...v2.1.0) (2021-07-05)
+
+
+### Features
+
+* support the `pathinfo` option ([#783](https://github.com/webpack-contrib/mini-css-extract-plugin/issues/783)) ([a37713f](https://github.com/webpack-contrib/mini-css-extract-plugin/commit/a37713f53bcecb9efc3f8a4d389c6274dae0bc85))
+
 ## [2.0.0](https://github.com/webpack-contrib/mini-css-extract-plugin/compare/v1.6.2...v2.0.0) (2021-06-30)
 
 ### NOTES
